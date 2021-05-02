@@ -1,54 +1,55 @@
+import numpy
 import pandas
+from collections import defaultdict
 
-def add_puzzle_cells(input_letter, input_row, input_col, puzzle_cells):
-	if (input_row, input_col) not in puzzle_cells:
-		puzzle_cells[(input_row, input_col)] = set()
-	puzzle_cells[(input_row, input_col)].add(input_letter)
-	return
+filename_words = "words.txt"
+filename_layout = "layout.csv"
 
-def represent_puzzle_cells(input_words, input_layout):
-	output_cells = {}
+def pos_range(pos_row, pos_col, word, word_dir):
+	word_len = len(word)
+	if word_dir == 'v':
+		row_range = range(pos_row, pos_row + word_len)
+		col_range = [pos_col] * word_len
+	elif word_dir == 'h':
+		row_range = [pos_row] * word_len
+		col_range = range(pos_col, pos_col + word_len)
+	else:
+		# throw exception
+		row_range, col_range = None, None
+	
+	return [*zip(row_range, col_range, word)]
 
-	for idx, info in input_layout.iterrows():
-		curr_word = input_words[idx]
-		start_row, start_col = info["row"], info["col"]
-
-		if info["direction"] == 'v':
-			curr_col = start_col
-			for letter_id, curr_letter in enumerate(curr_word):
-				curr_row = start_row + letter_id
-				add_puzzle_cells(curr_letter, curr_row, curr_col, output_cells)
-
-		elif info["direction"] == 'h':
-			curr_row = start_row
-			for letter_id, curr_letter in enumerate(curr_word):
-				curr_col = start_col + letter_id
-				add_puzzle_cells(curr_letter, curr_row, curr_col, output_cells)
-
-		else:
-			print("Invalid layout for word: {}".format(curr_word))
-
+def represent_cells(input_puzzle):
+	output_cells = defaultdict(set)
+	puzzle_cells = input_puzzle[["row", "col", "word", "direction"]].apply(lambda x: pos_range(*x), axis=1)
+	for word_cells in puzzle_cells:
+		for row, col, letter in word_cells:
+			output_cells[(row, col)].add(letter)
+	
 	return output_cells
 
 def count_letters(input_words):
-	return sum([len(each_word) for each_word in input_words])
+	return sum(map(len, input_words["word"]))
+
+def measure_board(input_puzzle):
+	word_length = numpy.array([*map(len, input_puzzle["word"])])
+	word_dir = numpy.array(input_puzzle["direction"])
+	row_end = numpy.array(input_puzzle["row"]) + (word_dir == 'v') * word_length
+	col_end = numpy.array(input_puzzle["col"]) + (word_dir == 'h') * word_length
+	return max(row_end), max(col_end)
 
 def find_invalid_cells(input_cells):
 	return [pos for pos, letters in input_cells.items() if len(letters) > 1]
 
-def measure_board(input_cells):
-	all_rows = [pos[0] for pos in input_cells.keys()]
-	all_cols = [pos[1] for pos in input_cells.keys()]
-	min_row, max_row = min(all_rows), max(all_rows)
-	min_col, max_col = min(all_cols), max(all_cols)
-	return (max_row - min_row + 1, max_col - min_col + 1)
-
-def eval_puzzle(input_words, input_cells):
+def eval_puzzle(input_words, input_layout):
+	input_puzzle = pandas.concat([input_words, input_layout], axis=1)
+	input_cells = represent_cells(input_puzzle)
+	
 	num_letters = count_letters(input_words)
+	board_y, board_x = measure_board(input_puzzle)
 	num_cells = len(input_cells.keys())
 	invalid_cells = find_invalid_cells(input_cells)
-	board_y, board_x = measure_board(input_cells)
-
+	
 	result = {
 		"valid": len(invalid_cells) == 0,
 		"invalid_cells": invalid_cells,
@@ -58,12 +59,6 @@ def eval_puzzle(input_words, input_cells):
 	}
 	return result
 
-filename_words = "words.txt"
-filename_layout = "layout.csv"
-
-puzzle_words = open(filename_words, 'r').read().split('\n')
-puzzle_words = [each_word for each_word in puzzle_words if len(each_word) > 0]
+puzzle_words = pandas.read_csv(filename_words, index_col=False, header=None, names=["word"])
 puzzle_layout = pandas.read_csv(filename_layout, index_col=False)
-
-puzzle_cells = represent_puzzle_cells(puzzle_words, puzzle_layout)
-print(eval_puzzle(puzzle_words, puzzle_cells))
+print(eval_puzzle(puzzle_words, puzzle_layout))
