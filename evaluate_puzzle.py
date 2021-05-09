@@ -1,9 +1,7 @@
+import argparse
 import numpy
 import pandas
 from collections import defaultdict
-
-filename_words = "words.txt"
-filename_layout = "layout.csv"
 
 def pos_range(pos_row, pos_col, word, word_dir):
 	word_len = len(word)
@@ -59,6 +57,12 @@ def eval_puzzle(input_words, input_layout):
 	}
 	return result
 
-puzzle_words = pandas.read_csv(filename_words, index_col=False, header=None, names=["word"])
-puzzle_layout = pandas.read_csv(filename_layout, index_col=False)
-print(eval_puzzle(puzzle_words, puzzle_layout))
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--word_file", help="Filename of list of words", default="words.txt")
+	parser.add_argument("--layout_file", help="Filename of position of words", default="layout.csv")
+	args = parser.parse_args()
+
+	puzzle_words = pandas.read_csv(args.word_file, index_col=False, header=None, names=["word"])
+	puzzle_layout = pandas.read_csv(args.layout_file, index_col=False)
+	print(eval_puzzle(puzzle_words, puzzle_layout))
